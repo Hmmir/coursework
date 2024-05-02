@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy_utils import create_database, database_exists
 import datetime
 import loader
-import parameters
+import Post
 
 base = declarative_base()
 
@@ -82,11 +82,11 @@ class Trading(base):
                f" close={self.close},"
 
 
-user = parameters.user
-password = parameters.password
-name_of_db = parameters.name
-ip = parameters.ip
-port = parameters.port
+user = Post.user
+password = Post.password
+name_of_db = Post.name
+ip = Post.ip
+port = Post.port
 
 # Подключаемся к БД
 # СУБД+драйвер://юзер:пароль@хост:порт/база
