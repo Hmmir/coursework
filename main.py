@@ -1,7 +1,7 @@
 import window
-import db_maker
+import functional
 
 if __name__ == "__main__":
-    db_maker.create_db()
+    functional.create_db()
     window.create_app()
 
