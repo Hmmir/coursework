@@ -1,0 +1,11 @@
+pip install apimoex
+pip install cryptography
+pip install matplotlib
+pip install openpyxl
+pip install pandas
+pip install psycopg2
+pip install requests
+pip install sqlalchemy
+pip install sqlalchemy-utils
+pip install tkcalendar
+pip install yfinance
