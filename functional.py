@@ -6,10 +6,11 @@ from sqlalchemy_utils import create_database, database_exists
 import datetime
 import loader
 import Post
-
+from sqlalchemy.orm import declarative_base
+# Define the base class for SQLAlchemy models
 base = declarative_base()
 
-
+# Define the Stock model
 class Stock(base):
     __tablename__ = 'stocks'
 
@@ -29,6 +30,7 @@ class Stock(base):
                f" end_date={self.end_date})>"
 
 
+# Define the Database model
 class Database(base):
     __tablename__ = 'database'
 
@@ -51,6 +53,7 @@ class Database(base):
                f"till_date={self.till_date})"
 
 
+# Define the Trading model
 class Trading(base):
     __tablename__ = 'tradings'
 
@@ -82,47 +85,51 @@ class Trading(base):
                f" close={self.close},"
 
 
+# Load database credentials from Post.py file
 user = Post.user
 password = Post.password
 name_of_db = Post.name
 ip = Post.ip
 port = Post.port
 
-# Подключаемся к БД
-# СУБД+драйвер://юзер:пароль@хост:порт/база
+# Construct the connection string for the database
 connection_string = f'postgresql+psycopg2://{user}:{password}@{ip}:{port}/{name_of_db}'
 engine = create_engine(connection_string, echo=False)
+
+# Create the database if it doesn't exist
 if database_exists(connection_string):
     print(f'Database exists: {database_exists(engine.url)}')
 else:
     create_database(engine.url)
     print(f'Database created: {database_exists(engine.url)}')
-# Session = sessionmaker(bind=engine, autoflush=False)
+
+# Create a session factory and a session instance
+Session = sessionmaker(bind=engine, autoflush=False)
 session = Session(bind=engine, autoflush=False)
 
-
+# Function to create database tables
 def create_db():
     base.metadata.create_all(engine)
 
-
+# Function to delete database tables
 def delete_tables():
     session.commit()
     Trading.__table__.drop(engine, checkfirst=True)
     Database.__table__.drop(engine, checkfirst=True)
 
-
+# Function to update the list of stocks in the database
 def update_list_of_stocks():
     dict_stocks = loader.form_dict_of_stocks()
     for x in dict_stocks:
         session.add(Stock(name=x, begin_date=dict_stocks[x][0], end_date=dict_stocks[x][1]))
         session.commit()
 
-
+# Function to truncate the 'stocks' table
 def truncate_table_stocks():
     stocks = session.query(Stock).where(Stock.id > 0)
     stocks.delete()
 
-
+# Function to get the current list of stock names from the database
 def get_current_list_stocks():
     result = session.query(Stock.name).all()
     mas = []
@@ -132,15 +139,13 @@ def get_current_list_stocks():
         mas.append(x)
     return mas
 
-
+# Function to get the begin and end dates for a given stock
 def get_begin_end_date(name_of_stock: str):
     begin = session.query(Stock).filter_by(name=name_of_stock).all()
     mas = begin[0].__dict__
-    # return [datetime.datetime.strptime(mas['begin_date'], '%Y-%m-%d'),
-    #         datetime.datetime.strptime(mas['end_date'], '%Y-%m-%d')]
     return [mas['begin_date'], mas['end_date']]
 
-
+# Function to get the current list of databases from the database
 def get_current_list_database():
     session.commit()
     result = session.query(Database).all()
@@ -156,7 +161,7 @@ def get_current_list_database():
         mas.append(lst)
     return mas
 
-
+# Function to get the current dictionary of tradings from the database
 def get_current_dict_tradings():
     result = session.query(Trading).all()
     mas = []
@@ -189,7 +194,7 @@ def get_current_dict_tradings():
     session.commit()
     return dct
 
-
+# Function to calculate trading profits
 def get_tradings_profit():
     result = session.query(Trading).all()
     mas = []
@@ -228,7 +233,7 @@ def get_tradings_profit():
     session.commit()
     return dct
 
-
+# Function to add data to the database
 def add_to_db(name: str, all_period: bool, from_date: datetime.date, to_date: datetime.date):
     mas = loader.download_stock(name, from_date, to_date)
     if mas[-1] is False:
@@ -240,7 +245,7 @@ def add_to_db(name: str, all_period: bool, from_date: datetime.date, to_date: da
         add_to_tradings(name, all_period, from_date, to_date)
         return True
 
-
+# Function to add trading data to the database
 def add_to_tradings(name: str, all_period: bool, from_date, to_date):
     mas = loader.download_stock(name, from_date, to_date)
     del mas[-1]
@@ -254,7 +259,7 @@ def add_to_tradings(name: str, all_period: bool, from_date, to_date):
                             close=mas[i][4]))
         session.commit()
 
-
+# Function to update the database with latest data
 def actualize():
     mas = get_current_list_database()
     for x in mas:
@@ -270,12 +275,6 @@ def actualize():
                 row.till_date = begin_end[1]
                 session.add(row)
                 session.commit()
-
-
-
-
-
-
 
 
 

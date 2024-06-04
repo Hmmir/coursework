@@ -1,3 +1,4 @@
+
 import tkinter as tk
 from tkinter import ttk
 import tkinter.messagebox as mb
@@ -13,17 +14,29 @@ import db_maker as dbm
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('My App')
-        # self['background'] = '#EBEBEB'
+
+        # Set window title and background color
+        self.title('Акции MOEX')
+        self['background'] = '#3729A3'
+
+        # Set window size and disable resizing
         self.geometry("740x345+300+200")
         self.resizable(False, False)
-        self.frame_add_stock = tk.Frame(self)
+
+        # Create frames for different sections of the GUI
+        self.frame_add_stock = tk.Frame(self, bg='#3729A3')
         self.frame_stat = tk.Frame(self)
         self.frame_db = tk.Frame(self)
+
+        # Initialize flag for "all period" checkbutton
         self.flag_all_period = tk.IntVar()
+
+        # Initialize variables to store stock name and dates
         self.name_of_stock = ''
         self.first_date = datetime.datetime.now().date()
         self.second_date = datetime.datetime.now().date()
+
+        # Run the main application loop
         self.__run()
 
     def __run(self):
@@ -33,12 +46,16 @@ class App(tk.Tk):
         self.__widgets_db_frame()
 
     def __put_frames(self):
+        # Place frames on the window
         self.frame_add_stock.grid(row=0, column=0, sticky='nesw')
         self.frame_stat.grid(row=0, column=1, sticky='nesw')
         self.frame_db.grid(row=1, column=0, columnspan=2, sticky='nesw')
 
     def __widgets_add_stock_frame(self):
+        # Get the current list of stocks from the database
         self.list_stocks = dbm.get_current_list_stocks()
+
+        # Create widgets for the "Add Stock" frame
         l_pick_stock = tk.Label(self.frame_add_stock, text='Выбор акции:')
         l_period = tk.Label(self.frame_add_stock, text='Период:')
         self.cb_pick_stock = ttk.Combobox(self.frame_add_stock,
@@ -72,6 +89,7 @@ class App(tk.Tk):
         btn_add = tk.Button(self.frame_add_stock, text='Добавить', command=self.__add_stock)
         btn_del = tk.Button(self.frame_add_stock, text='Удалить всё', command=self.__deleting)
         btn_actual = tk.Button(self.frame_add_stock, text='Актуализация', command=self.__actualize)
+
         l_pick_stock.grid(row=0, column=0, padx=10, pady=10)
         self.cb_pick_stock.grid(row=0, column=1, columnspan=2, sticky='w', padx=10, pady=10)
         btn_update_stocks.grid(row=0, column=2, columnspan=3, padx=10, pady=10, sticky='e')

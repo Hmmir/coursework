@@ -1,8 +1,8 @@
-password = ''
-user = ''
-name = 'database'
+password = 'hellomir'
+user = 'postgres'
+name = 'demo'
 ip = 'localhost'
-port = 5433
+port = 5434
 
 
 

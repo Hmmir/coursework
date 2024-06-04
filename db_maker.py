@@ -4,12 +4,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy_utils import create_database, database_exists
 import datetime
-import loader
-import parameters
-
+import dataloader
+import Post
+from sqlalchemy.orm import declarative_base
+# Базовый класс для моделей SQLAlchemy
 base = declarative_base()
 
-
+# Модель "Акция" (Stock)
 class Stock(base):
     __tablename__ = 'stocks'
 
@@ -29,6 +30,7 @@ class Stock(base):
                f" end_date={self.end_date})>"
 
 
+# Модель "База данных" (Database)
 class Database(base):
     __tablename__ = 'database'
 
@@ -51,6 +53,7 @@ class Database(base):
                f"till_date={self.till_date})"
 
 
+# Модель "Торги" (Trading)
 class Trading(base):
     __tablename__ = 'tradings'
 
@@ -82,47 +85,50 @@ class Trading(base):
                f" close={self.close},"
 
 
-user = parameters.user
-password = parameters.password
-name_of_db = parameters.name
-ip = parameters.ip
-port = parameters.port
+# Загрузка данных о подключении к БД из файла Post.py
+user = Post.user
+password = Post.password
+name_of_db = Post.name
+ip = Post.ip
+port = Post.port
 
-# Подключаемся к БД
-# СУБД+драйвер://юзер:пароль@хост:порт/база
+# Строка подключения к БД
 connection_string = f'postgresql+psycopg2://{user}:{password}@{ip}:{port}/{name_of_db}'
 engine = create_engine(connection_string, echo=False)
+
+# Создание БД, если она не существует
 if database_exists(connection_string):
     print(f'Database exists: {database_exists(engine.url)}')
 else:
     create_database(engine.url)
     print(f'Database created: {database_exists(engine.url)}')
-# Session = sessionmaker(bind=engine, autoflush=False)
+
+# Создание сессии для работы с БД
 session = Session(bind=engine, autoflush=False)
 
-
+# Функция создания таблиц в БД
 def create_db():
     base.metadata.create_all(engine)
 
-
+# Функция удаления таблиц из БД
 def delete_tables():
     session.commit()
     Trading.__table__.drop(engine, checkfirst=True)
     Database.__table__.drop(engine, checkfirst=True)
 
-
+# Функция обновления списка акций в БД
 def update_list_of_stocks():
-    dict_stocks = loader.form_dict_of_stocks()
+    dict_stocks = dataloader.form_dict_of_stocks()
     for x in dict_stocks:
         session.add(Stock(name=x, begin_date=dict_stocks[x][0], end_date=dict_stocks[x][1]))
         session.commit()
 
-
+# Функция очистки таблицы "stocks"
 def truncate_table_stocks():
     stocks = session.query(Stock).where(Stock.id > 0)
     stocks.delete()
 
-
+# Функция получения текущего списка акций из БД
 def get_current_list_stocks():
     result = session.query(Stock.name).all()
     mas = []
@@ -132,15 +138,13 @@ def get_current_list_stocks():
         mas.append(x)
     return mas
 
-
+# Функция получения начальной и конечной даты для заданной акции
 def get_begin_end_date(name_of_stock: str):
     begin = session.query(Stock).filter_by(name=name_of_stock).all()
     mas = begin[0].__dict__
-    # return [datetime.datetime.strptime(mas['begin_date'], '%Y-%m-%d'),
-    #         datetime.datetime.strptime(mas['end_date'], '%Y-%m-%d')]
     return [mas['begin_date'], mas['end_date']]
 
-
+# Функция получения текущего списка баз данных из БД
 def get_current_list_database():
     session.commit()
     result = session.query(Database).all()
@@ -156,7 +160,7 @@ def get_current_list_database():
         mas.append(lst)
     return mas
 
-
+# Функция получения текущего словаря торгов из БД
 def get_current_dict_tradings():
     result = session.query(Trading).all()
     mas = []
@@ -189,7 +193,7 @@ def get_current_dict_tradings():
     session.commit()
     return dct
 
-
+# Функция расчета прибыли от торгов
 def get_tradings_profit():
     result = session.query(Trading).all()
     mas = []
@@ -228,9 +232,9 @@ def get_tradings_profit():
     session.commit()
     return dct
 
-
+# Функция добавления данных в БД
 def add_to_db(name: str, all_period: bool, from_date: datetime.date, to_date: datetime.date):
-    mas = loader.download_stock(name, from_date, to_date)
+    mas = dataloader.download_stock(name, from_date, to_date)
     if mas[-1] is False:
         return False
     else:
@@ -240,9 +244,9 @@ def add_to_db(name: str, all_period: bool, from_date: datetime.date, to_date: da
         add_to_tradings(name, all_period, from_date, to_date)
         return True
 
-
+# Функция добавления данных о торгах в БД
 def add_to_tradings(name: str, all_period: bool, from_date, to_date):
-    mas = loader.download_stock(name, from_date, to_date)
+    mas = dataloader.download_stock(name, from_date, to_date)
     del mas[-1]
     for i in range(1, len(mas)):
         session.add(Trading(name_st=name,
@@ -254,7 +258,7 @@ def add_to_tradings(name: str, all_period: bool, from_date, to_date):
                             close=mas[i][4]))
         session.commit()
 
-
+# Функция обновления БД новыми данными
 def actualize():
     mas = get_current_list_database()
     for x in mas:
@@ -270,7 +274,6 @@ def actualize():
                 row.till_date = begin_end[1]
                 session.add(row)
                 session.commit()
-
 
 
 
