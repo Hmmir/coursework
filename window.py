@@ -124,7 +124,7 @@ class StockApp(tk.Tk):
         # Create database table
         self.database_list = dbm.cur_l_database()
         self.database_table = ttk.Treeview(self.database_frame, show='headings')
-        self.database_table['columns'] = ('id', 'name', 'from_date', 'to_date')
+        self.database_table['columns'] = ('Номер', 'Акция', 'С', 'До')
         for column in self.database_table['columns']:
             self.database_table.heading(column, text=column, anchor='center')
             self.database_table.column(column, anchor='center', width=145)
