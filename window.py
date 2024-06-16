@@ -284,7 +284,13 @@ class ChartWindow(tk.Toplevel):
         else:
             file_name = "profit.xlsx"
 
-        self.df.to_excel(file_name)
+        
+        self.df['Date'] = pd.to_datetime(self.df['Date'])
+
+        # Теперь можно использовать .dt.strftime
+        self.df['Date'] = self.df['Date'].dt.strftime('%Y-%m-%d')
+
+        self.df.to_excel(file_name, index=False)
 
         progress_bar = ttk.Progressbar(self.frame_settings,
                                        orient='horizontal',
