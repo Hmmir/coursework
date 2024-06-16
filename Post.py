@@ -1,6 +1,6 @@
 password = 'hellomir'
 user = 'postgres'
-name = 'demo'
+name = 'postgres'
 ip = 'localhost'
 port = 5434
 

@@ -7,48 +7,49 @@ import yfinance.shared as shared
 import datetime
 
 
-def form_dict_of_stocks() -> dict:
+def from_stocks_dt() -> dict:
     """
-    This function forms a dictionary of stocks
-    by parsing data from the ISS MOEX API.
+    Формирует словарь акций,
+    анализируя данные с ISS MOEX API.
     """
-    request_urls = [
+    api_endpoints = [
         "https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/IMOEX/tickers.json",
         "https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/IMOEX2/tickers.json",
         "https://iss.moex.com/iss/statistics/engines/stock/markets/index/analytics/RTSI/tickers.json",
     ]
 
-    dict_stocks = collections.OrderedDict()
+    stock_dict = collections.OrderedDict()
     with requests.Session() as session:
-        for request_url in request_urls:
-            iss = apimoex.ISSClient(session, request_url)
-            data = iss.get()
+        for endpoint in api_endpoints:
+            iss_client = apimoex.ISSClient(session, endpoint)
+            data = iss_client.get()
 
-            for ticker in data['tickers']:
-                if ticker['ticker'] not in dict_stocks:
-                    mas = [ticker['from'], ticker['till']]
-                    dict_stocks[ticker['ticker']] = mas
+            for ticker_data in data['tickers']:
+                ticker = ticker_data['ticker']
+                if ticker not in stock_dict:
+                    stock_dict[ticker] = [ticker_data['from'], ticker_data['till']]
 
-    return dict_stocks
+    return stock_dict
 
 
-def download_stock(name: str, from_date: datetime.date, to_date: datetime.date) -> list:
+def dwn_stock(name: str, from_date: datetime.date, to_date: datetime.date) -> list:
     """
-    This function downloads stock data from Yahoo Finance.
+    Загружает данные об акциях с Yahoo Finance.
     """
-    flag = True
-    data = yf.download(name + '.ME', from_date, to_date)
-    if len(list(shared._ERRORS.keys())) != 0:
-        flag = False
+    ticker = name + ".ME"
+    data = yf.download(ticker, from_date, to_date)
 
-    mas = [data.columns.tolist()] + data.reset_index().values.tolist()
-    for i in range(1, len(mas)):
-        mas[i][0] = mas[i][0].to_pydatetime().date()
-        mas[i][0] = mas[i][0].isoformat()
-    mas.append(flag)
+    # Проверяем наличие ошибок Yahoo Finance
+    is_success = len(list(shared._ERRORS.keys())) == 0
 
-    return mas
+    # Формируем список данных
+    stock_data = [data.columns.tolist()] + data.reset_index().values.tolist()
 
+    # Преобразуем дату в строковый формат ISO
+    for row in stock_data[1:]:
+        row[0] = row[0].to_pydatetime().date().isoformat()
 
+    # Добавляем флаг успешности загрузки
+    stock_data.append(is_success)
 
-
+    return stock_data

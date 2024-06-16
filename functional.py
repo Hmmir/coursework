@@ -7,11 +7,12 @@ import datetime
 import loader
 import Post
 from sqlalchemy.orm import declarative_base
-# Define the base class for SQLAlchemy models
-base = declarative_base()
 
-# Define the Stock model
-class Stock(base):
+# Базовый класс для моделей SQLAlchemy
+Base = declarative_base()
+
+# Модель "Акция" (Stock)
+class Stock(Base):
     __tablename__ = 'stocks'
 
     id = Column(Integer, primary_key=True)
@@ -25,36 +26,29 @@ class Stock(base):
         self.end_date = end_date
 
     def __repr__(self):
-        return f"<Stocks(name={self.name}, " \
-               f"begin_date={self.begin_date}," \
-               f" end_date={self.end_date})>"
+        return f"<Stock(name='{self.name}', begin_date='{self.begin_date}', end_date='{self.end_date}')>"
 
-
-# Define the Database model
-class Database(base):
+# Модель "База данных" (Database)
+class Database(Base):
     __tablename__ = 'database'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(100))
-    all_period = Column(Boolean)
+
     from_date = Column(Date)
     till_date = Column(Date)
 
-    def __init__(self, name, all_period, from_date, till_date):
+    def __init__(self, name, from_date, till_date):
         self.name = name
-        self.all_period = all_period
+
         self.from_date = from_date
         self.till_date = till_date
 
-    def __repr_(self):
-        return f"Database(name={self.name}, " \
-               f"all_period={self.all_period}" \
-               f"from_date={self.from_date}, " \
-               f"till_date={self.till_date})"
+    def __repr__(self):
+        return f"<Database(name='{self.name}', from_date='{self.from_date}', till_date='{self.till_date}')>"
 
-
-# Define the Trading model
-class Trading(base):
+# Модель "Торги" (Trading)
+class Trading(Base):
     __tablename__ = 'tradings'
 
     id = Column(Integer, primary_key=True)
@@ -76,206 +70,156 @@ class Trading(base):
         self.close = close
 
     def __repr__(self):
-        return f"Tradings(name_st={self.name_st}," \
-               f" all_period_st={self.all_period_st}, " \
-               f"date={self.date}," \
-               f" open={self.open}," \
-               f" high={self.high}," \
-               f" low={self.low}," \
-               f" close={self.close},"
+        return f"<Trading(name_st='{self.name_st}', all_period_st={self.all_period_st}, date='{self.date}', open={self.open}, high={self.high}, low={self.low}, close={self.close})>"
 
-
-# Load database credentials from Post.py file
+# Загрузка данных о подключении к БД из файла Post.py
 user = Post.user
 password = Post.password
 name_of_db = Post.name
 ip = Post.ip
 port = Post.port
 
-# Construct the connection string for the database
+# Строка подключения к БД
 connection_string = f'postgresql+psycopg2://{user}:{password}@{ip}:{port}/{name_of_db}'
-engine = create_engine(connection_string, echo=False)
+engine = create_engine(connection_string, echo=False)  # Включено echo=False
 
-# Create the database if it doesn't exist
+# Создание БД, если она не существует
 if database_exists(connection_string):
     print(f'Database exists: {database_exists(engine.url)}')
 else:
     create_database(engine.url)
     print(f'Database created: {database_exists(engine.url)}')
 
-# Create a session factory and a session instance
+# Создание сессии для работы с БД
 Session = sessionmaker(bind=engine, autoflush=False)
 session = Session(bind=engine, autoflush=False)
 
-# Function to create database tables
+# Функция создания таблиц в БД
 def create_db():
-    base.metadata.create_all(engine)
+    Base.metadata.create_all(engine)
 
-# Function to delete database tables
-def delete_tables():
+# Функция удаления таблиц из БД
+def del_t():
     session.commit()
     Trading.__table__.drop(engine, checkfirst=True)
     Database.__table__.drop(engine, checkfirst=True)
 
-# Function to update the list of stocks in the database
-def update_list_of_stocks():
-    dict_stocks = loader.form_dict_of_stocks()
-    for x in dict_stocks:
-        session.add(Stock(name=x, begin_date=dict_stocks[x][0], end_date=dict_stocks[x][1]))
+# Функция обновления списка акций в БД
+def upd_l_stocks():
+    stock_data = loader.form_dict_of_stocks()
+    for stock_name, dates in stock_data.items():
+        session.add(Stock(name=stock_name, begin_date=dates[0], end_date=dates[1]))
         session.commit()
 
-# Function to truncate the 'stocks' table
-def truncate_table_stocks():
-    stocks = session.query(Stock).where(Stock.id > 0)
-    stocks.delete()
-
-# Function to get the current list of stock names from the database
-def get_current_list_stocks():
-    result = session.query(Stock.name).all()
-    mas = []
-    for i in range(len(result)):
-        x = str(result[i])
-        x = x[2:-3]
-        mas.append(x)
-    return mas
-
-# Function to get the begin and end dates for a given stock
-def get_begin_end_date(name_of_stock: str):
-    begin = session.query(Stock).filter_by(name=name_of_stock).all()
-    mas = begin[0].__dict__
-    return [mas['begin_date'], mas['end_date']]
-
-# Function to get the current list of databases from the database
-def get_current_list_database():
+# Функция очистки таблицы "stocks"
+def t_stocks():
+    session.query(Stock).delete()
     session.commit()
-    result = session.query(Database).all()
-    mas = []
-    for x in result:
-        q = x.__dict__
-        lst = list()
-        lst.append(q['id'])
-        lst.append(q['name'])
-        lst.append(q['all_period'])
-        lst.append(q['from_date'].isoformat())
-        lst.append(q['till_date'].isoformat())
-        mas.append(lst)
-    return mas
 
-# Function to get the current dictionary of tradings from the database
-def get_current_dict_tradings():
-    result = session.query(Trading).all()
-    mas = []
-    mas_stock = []
-    for x in result:
-        q = x.__dict__
-        lst = list()
-        lst.append(q['id'])
-        lst.append(q['name_st'])
-        lst.append(q['all_period_st'])
-        lst.append(q['date'])
-        lst.append(q['open'])
-        lst.append(q['high'])
-        lst.append(q['low'])
-        lst.append(q['close'])
-        if lst not in mas:
-            mas.append(lst)
-        if q['name_st'] not in mas_stock:
-            mas_stock.append(q['name_st'])
-    dct = dict()
-    dct['Date'] = []
-    for i in range(len(mas)):
-        if mas[i][3] not in dct['Date']:
-            dct['Date'].append(mas[i][3])
-    dct['Date'].sort()
-    for x in mas_stock:
-        dct[x] = [None] * len(dct['Date'])
-    for x in mas:
-        dct[x[1]][dct['Date'].index(x[3])] = x[4]
+# Функция получения текущего списка акций из БД
+def cur_l_stock():
+    stock_names = [stock.name for stock in session.query(Stock).all()]
+    return stock_names
+
+# Функция получения начальной и конечной даты для заданной акции
+def period_end_date(stock_name: str):
+    stock = session.query(Stock).filter_by(name=stock_name).first()
+    if stock:
+        return stock.begin_date, stock.end_date
+    else:
+        return None, None
+
+# Функция получения текущего списка баз данных из БД
+def cur_l_database():
+    database_list = []
+    for db in session.query(Database).all():
+        database_list.append([
+            db.id,
+            db.name,
+            db.all_period,
+            db.from_date.isoformat(),
+            db.till_date.isoformat()
+        ])
+    return database_list
+
+# Функция получения текущего словаря торгов из БД
+def cur_d_tradings():
+    tradings_data = {}
+    tradings_data['Date'] = []
+    stock_names = []
+    for trading in session.query(Trading).all():
+        if trading.date not in tradings_data['Date']:
+            tradings_data['Date'].append(trading.date)
+        if trading.name_st not in stock_names:
+            stock_names.append(trading.name_st)
+            tradings_data[trading.name_st] = [None] * len(tradings_data['Date'])
+        tradings_data[trading.name_st][tradings_data['Date'].index(trading.date)] = trading.close
     session.commit()
-    return dct
+    return tradings_data
 
-# Function to calculate trading profits
-def get_tradings_profit():
-    result = session.query(Trading).all()
-    mas = []
-    mas_stock = []
-    for x in result:
-        q = x.__dict__
-        lst = list()
-        lst.append(q['id'])
-        lst.append(q['name_st'])
-        lst.append(q['all_period_st'])
-        lst.append(q['date'])
-        lst.append(q['close'])
-        if lst not in mas:
-            mas.append(lst)
-        if q['name_st'] not in mas_stock:
-            mas_stock.append(q['name_st'])
-    dct = dict()
-    dct['Date'] = []
-    for i in range(len(mas)):
-        if mas[i][3] not in dct['Date']:
-            dct['Date'].append(mas[i][3])
-    dct['Date'].sort()
-    for x in mas_stock:
-        dct[x] = [None] * len(dct['Date'])
-    for x in mas:
-        dct[x[1]][dct['Date'].index(x[3])] = x[4]
-    for key in dct:
-        if key != 'Date':
-            for i in range(len(dct[key])):
-                if i == 0 or (i > 1 and dct[key][i - 1] is None and dct[key][i] is not None):
-                    first_point = dct[key][i]
-                    dct[key][i] = 0
+# Функция расчета прибыли от торгов
+def t_profit():
+    tradings_data = cur_d_tradings()
+    for stock_name, prices in tradings_data.items():
+        if stock_name != 'Date':
+            for i, price in enumerate(prices):
+                if i == 0 or (i > 1 and prices[i - 1] is None and price is not None):
+                    first_point = price
+                    prices[i] = 0
                 else:
-                    if dct[key][i] is not None:
-                        dct[key][i] -= first_point
+                    if price is not None:
+                        prices[i] -= first_point
     session.commit()
-    return dct
+    return tradings_data
 
-# Function to add data to the database
+# Функция добавления данных в БД
 def add_to_db(name: str, all_period: bool, from_date: datetime.date, to_date: datetime.date):
-    mas = loader.download_stock(name, from_date, to_date)
-    if mas[-1] is False:
+    print(f"Добавление данных в БД: name={name}, all_period={all_period}, from_date={from_date}, to_date={to_date}")
+    stock_data = loader.download_stock(name, from_date, to_date)
+    if stock_data[-1] is False:
         return False
     else:
         session.add(Database(name=name, all_period=all_period, from_date=from_date, till_date=to_date))
         session.commit()
-        del mas[-1]
-        add_to_tradings(name, all_period, from_date, to_date)
+        del stock_data[-1]
+        addtradings(name, all_period, from_date, to_date)
         return True
 
-# Function to add trading data to the database
-def add_to_tradings(name: str, all_period: bool, from_date, to_date):
-    mas = loader.download_stock(name, from_date, to_date)
-    del mas[-1]
-    for i in range(1, len(mas)):
-        session.add(Trading(name_st=name,
-                            all_period_st=all_period,
-                            date=mas[i][0],
-                            open=mas[i][1],
-                            high=mas[i][2],
-                            low=mas[i][3],
-                            close=mas[i][4]))
+# Функция добавления данных о торгах в БД
+def addtradings(name: str, all_period: bool, from_date, to_date):
+    print(f"Добавление данных о торгах: name={name}, all_period={all_period}, from_date={from_date}, to_date={to_date}")
+    stock_data = loader.download_stock(name, from_date, to_date)
+    del stock_data[-1]
+    for i in range(1, len(stock_data)):
+        print(f"Добавление строки торгов: {stock_data[i]}")
+        session.add(Trading(
+            name_st=name,
+            all_period_st=all_period,
+            date=stock_data[i][0],
+            open=stock_data[i][1],
+            high=stock_data[i][2],
+            low=stock_data[i][3],
+            close=stock_data[i][4]
+        ))
         session.commit()
 
-# Function to update the database with latest data
+# Функция обновления БД новыми данными
 def actualize():
-    mas = get_current_list_database()
-    for x in mas:
-        if x[2] == 1:
-            begin_end = get_begin_end_date(x[1])
-            if x[4] != str(begin_end[1]):
-                new_begin = datetime.datetime.strptime(x[4], "%Y-%m-%d") + datetime.timedelta(days=1)
-                add_to_tradings(x[1], x[2], new_begin, begin_end[1])
-                row = session.query(Database).filter_by(name=x[1],
-                                                        all_period=x[2],
-                                                        from_date=x[3],
-                                                        till_date=x[4]).first()
-                row.till_date = begin_end[1]
-                session.add(row)
+    for db_record in cur_l_database():
+        if db_record[2] == 1:
+            begin_date, end_date = period_end_date(db_record[1])
+            if db_record[4] != str(end_date):
+                new_begin_date = datetime.datetime.strptime(db_record[4], "%Y-%m-%d") + datetime.timedelta(days=1)
+                addtradings(db_record[1], db_record[2], new_begin_date, end_date)
+                db_row = session.query(Database).filter_by(
+                    name=db_record[1],
+                    all_period=db_record[2],
+                    from_date=db_record[3],
+                    till_date=db_record[4]
+                ).first()
+                db_row.till_date = end_date
+                session.add(db_row)
                 session.commit()
-
 
 
 

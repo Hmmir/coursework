@@ -1,7 +1,7 @@
 
 import tkinter as tk
 from tkinter import ttk
-import tkinter.messagebox as mb
+from tkinter import messagebox as mb
 from tkcalendar import DateEntry, Calendar
 import pandas as pd
 import datetime
@@ -9,307 +9,309 @@ import time
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import db_maker as dbm
-
-
-class App(tk.Tk):
+import random
+import os
+class StockApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        # Set window title and background color
-        self.title('Акции MOEX')
-        self['background'] = '#3729A3'
-
-        # Set window size and disable resizing
-        self.geometry("740x345+300+200")
+        # Window configuration
+        self.title("MOEX Stocks Tracker")
+        self.configure(background="#3729A3")
+        self.geometry("600x350")
         self.resizable(False, False)
 
-        # Create frames for different sections of the GUI
-        self.frame_add_stock = tk.Frame(self, bg='#3729A3')
-        self.frame_stat = tk.Frame(self)
-        self.frame_db = tk.Frame(self)
+        # Create frames
+        self.add_stock_frame = tk.Frame(self, bg="#3729A3")
+        self.statistics_frame = tk.Frame(self, bg="red")
+        self.database_frame = tk.Frame(self)
 
-        # Initialize flag for "all period" checkbutton
-        self.flag_all_period = tk.IntVar()
+        # Initialize variables
+        self.all_period_var = tk.BooleanVar()
+        self.selected_stock = ""
+        self.start_date = datetime.datetime.now().date()
+        self.end_date = datetime.datetime.now().date()
 
-        # Initialize variables to store stock name and dates
-        self.name_of_stock = ''
-        self.first_date = datetime.datetime.now().date()
-        self.second_date = datetime.datetime.now().date()
+        # Run the application
+        self.run_app()
 
-        # Run the main application loop
-        self.__run()
-
-    def __run(self):
-        self.__put_frames()
-        self.__widgets_add_stock_frame()
-        self.__widgets_stat_frame()
-        self.__widgets_db_frame()
-
-    def __put_frames(self):
-        # Place frames on the window
-        self.frame_add_stock.grid(row=0, column=0, sticky='nesw')
-        self.frame_stat.grid(row=0, column=1, sticky='nesw')
-        self.frame_db.grid(row=1, column=0, columnspan=2, sticky='nesw')
-
-    def __widgets_add_stock_frame(self):
-        # Get the current list of stocks from the database
-        self.list_stocks = dbm.get_current_list_stocks()
+    def run_app(self):
+        # Arrange frames
+        self.place_frames()
 
         # Create widgets for the "Add Stock" frame
-        l_pick_stock = tk.Label(self.frame_add_stock, text='Выбор акции:')
-        l_period = tk.Label(self.frame_add_stock, text='Период:')
-        self.cb_pick_stock = ttk.Combobox(self.frame_add_stock,
-                                     values=self.list_stocks,
-                                     justify=tk.CENTER,
-                                     state='readonly')
-        btn_update_stocks = tk.Button(self.frame_add_stock,
-                                      text='Обновить акции',
-                                      command=self.__refresh_list_of_stocks)
-        chbtn_all_period = tk.Checkbutton(self.frame_add_stock,
-                                          text='Весь период',
-                                          command=self.__pressed_checkbutton,
-                                          variable=self.flag_all_period,
-                                          offvalue=0,
-                                          onvalue=1)
-        self.de_period1 = DateEntry(self.frame_add_stock,
-                                    foreground='black',
-                                    normalforeground='black',
-                                    selectforeground='red',
-                                    background='white',
-                                    date_pattern='YYYY-mm-dd',
-                                    state='readonly')
-        l_dash = tk.Label(self.frame_add_stock, text='-')
-        self.de_period2 = DateEntry(self.frame_add_stock,
-                                    foreground='black',
-                                    normalforeground='black',
-                                    selectforeground='red',
-                                    background='white',
-                                    date_pattern='YYYY-mm-dd',
-                                    state='readonly')
-        btn_add = tk.Button(self.frame_add_stock, text='Добавить', command=self.__add_stock)
-        btn_del = tk.Button(self.frame_add_stock, text='Удалить всё', command=self.__deleting)
-        btn_actual = tk.Button(self.frame_add_stock, text='Актуализация', command=self.__actualize)
+        self.create_add_stock_widgets()
 
-        l_pick_stock.grid(row=0, column=0, padx=10, pady=10)
-        self.cb_pick_stock.grid(row=0, column=1, columnspan=2, sticky='w', padx=10, pady=10)
-        btn_update_stocks.grid(row=0, column=2, columnspan=3, padx=10, pady=10, sticky='e')
-        l_period.grid(row=1, column=0, padx=10, pady=10, sticky='w')
-        chbtn_all_period.grid(row=1, column=1, padx=10, pady=10)
-        self.de_period1.grid(row=1, column=2, padx=10, pady=10)
-        l_dash.grid(row=1, column=3)
-        self.de_period2.grid(row=1, column=4, padx=10, pady=10)
-        btn_add.grid(row=2, column=1, padx=10, pady=10, sticky='w')
-        btn_del.grid(row=2, column=2, padx=10, pady=10)
-        btn_actual.grid(row=2, column=3, columnspan=2, padx=10, pady=10, sticky='e')
-        self.cb_pick_stock.bind('<<ComboboxSelected>>', self.__picked_stock)
-        self.de_period1.bind('<<DateEntrySelected>>', self.__picked_first_date)
-        self.de_period2.bind('<<DateEntrySelected>>', self.__picked_second_date)
+        # Create widgets for the "Statistics" frame
+        self.create_statistics_widgets()
 
-    def __picked_stock(self, event):
-        self.name_of_stock = self.cb_pick_stock.get()
-        self.begin_end_date = dbm.get_begin_end_date(self.name_of_stock)
-        if self.flag_all_period.get() == 1:
-            self.de_period1.set_date(self.begin_end_date[0])
-            self.de_period2.set_date(self.begin_end_date[1])
-        self.first_date = self.de_period1.get_date()
-        self.second_date = self.de_period2.get_date()
+        # Create widgets for the "Database" frame
+        self.create_database_widgets()
 
-    def __pressed_checkbutton(self):
-        if self.name_of_stock != '':
-            if self.flag_all_period.get() == 1:
-                self.de_period1.set_date(self.begin_end_date[0])
-                self.first_date = self.begin_end_date[0]
-                self.de_period2.set_date(self.begin_end_date[1])
-                self.second_date = self.begin_end_date[1]
-            else:
-                self.first_date = self.begin_end_date[0] + datetime.timedelta(days=1)
-                self.de_period1.set_date(self.first_date)
+    def place_frames(self):
+        # Place frames on the window
+        self.add_stock_frame.grid(row=0, column=0, sticky='nesw')
+        self.statistics_frame.grid(row=0, column=1, sticky='nesw')
+        self.database_frame.grid(row=1, column=0, columnspan=2, sticky='nesw')
 
-    def __picked_first_date(self, event):
-        self.first_date = self.de_period1.get_date()
-        self.second_date = self.de_period2.get_date()
-        if self.name_of_stock != '':
-            if self.begin_end_date[0] > self.first_date or self.first_date >= self.second_date:
-                self.de_period1.set_date(self.begin_end_date[0])
-                self.first_date = self.begin_end_date[0]
-                self.__warning()
-            self.__check_all_period()
+    def create_add_stock_widgets(self):
+        # Get the current list of stocks
+        self.stock_list = dbm.cur_l_stoc()
 
-    def __picked_second_date(self, event):
-        self.first_date = self.de_period1.get_date()
-        self.second_date = self.de_period2.get_date()
-        if self.name_of_stock != '':
-            if self.begin_end_date[1] < self.second_date:
-                self.de_period2.set_date(self.begin_end_date[1])
-                self.second_date = self.begin_end_date[1]
-                self.__warning()
-            if self.second_date <= self.first_date:
-                self.de_period2.set_date(self.begin_end_date[1])
-                self.second_date = self.begin_end_date[1]
-                self.__warning()
-            self.__check_all_period()
+        # Create widgets
+        self.stock_combobox = ttk.Combobox(self.add_stock_frame,
+                                           values=self.stock_list,
+                                           justify=tk.CENTER,
+                                           state='readonly')
+        self.update_stocks_button = tk.Button(self.add_stock_frame,
+                                             text='Update Stocks',
+                                             command=self.refresh_stock_list)
+        self.all_period_checkbox = tk.Checkbutton(self.add_stock_frame,
+                                                text='All period',
+                                                variable=self.all_period_var,
+                                                command=self.toggle_all_period)
+        self.start_date_entry = DateEntry(self.add_stock_frame,
+                                          foreground='black',
+                                          normalforeground='black',
+                                          selectforeground='red',
+                                          background='white',
+                                          date_pattern='YYYY-mm-dd',
+                                          state='readonly')
+        self.end_date_entry = DateEntry(self.add_stock_frame,
+                                        foreground='black',
+                                        normalforeground='black',
+                                        selectforeground='red',
+                                        background='white',
+                                        date_pattern='YYYY-mm-dd',
+                                        state='readonly')
+        self.add_button = tk.Button(self.add_stock_frame, text='Add', command=self.add_stock)
+        self.delete_all_button = tk.Button(self.add_stock_frame, text='Delete All', command=self.delete_all_data)
+        self.actualize_button = tk.Button(self.add_stock_frame, text='Actualize', command=self.actualize_data)
 
-    def __warning(self):
-        warning = 'Акция торгуется с ' + str(self.begin_end_date[0]) + ' по ' + str(self.begin_end_date[1])
-        warning += '.\nДля обновления информации нажмите "Обновить акции".'
-        mb.showwarning('Внимание', warning)
+        # Style buttons
+        for button in [self.add_button, self.delete_all_button, self.actualize_button, self.update_stocks_button]:
+            button.configure(activebackground='lightgreen', activeforeground='black')
 
-    def __refresh_list_of_stocks(self):
-        dbm.truncate_table_stocks()
-        dbm.update_list_of_stocks()
-        self.list_stocks = dbm.get_current_list_stocks()
-        self.cb_pick_stock.configure(values=self.list_stocks)
+        # Place widgets
+        self.stock_combobox.grid(row=0, column=1, columnspan=2, sticky='w', padx=10, pady=10)
+        self.update_stocks_button.grid(row=0, column=2, columnspan=3, padx=10, pady=10, sticky='e')
+        self.all_period_checkbox.grid(row=1, column=1, padx=10, pady=10)
+        self.start_date_entry.grid(row=1, column=2, padx=10, pady=10)
+        self.end_date_entry.grid(row=2, column=2, padx=10, pady=10)
+        self.add_button.grid(row=3, column=3, padx=10, pady=10, sticky='w')
+        self.delete_all_button.grid(row=3, column=2, padx=10, pady=10)
+        self.actualize_button.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky='e')
 
-    def __check_all_period(self):
-        self.first_date = self.de_period1.get_date()
-        self.second_date = self.de_period2.get_date()
-        if self.first_date == self.begin_end_date[0] and self.second_date == self.begin_end_date[1]:
-            self.flag_all_period.set(1)
+        # Bind events
+        self.stock_combobox.bind('<<ComboboxSelected>>', self.stock_selected)
+        self.start_date_entry.bind('<<DateEntrySelected>>', self.start_date_selected)
+        self.end_date_entry.bind('<<DateEntrySelected>>', self.end_date_selected)
+
+    def create_statistics_widgets(self):
+        # Buttons for statistics
+        self.cost_dynamics_button = tk.Button(self.statistics_frame, text='Cost dynamics', command=self.open_cost_dynamics)
+        self.profit_dynamics_button = tk.Button(self.statistics_frame, text='Profit dynamics', command=self.open_profit_dynamics)
+
+        # Place buttons
+        self.profit_dynamics_button.grid(row=0, column=0, padx=10, pady=10)
+        self.cost_dynamics_button.grid(row=1, column=0, padx=10, pady=10)
+
+        # Style buttons
+        for button in [self.cost_dynamics_button, self.profit_dynamics_button]:
+            button.configure(activebackground='lightgreen', activeforeground='black')
+
+    def create_database_widgets(self):
+        # Create database table
+        self.database_list = dbm.cur_l_database()
+        self.database_table = ttk.Treeview(self.database_frame, show='headings')
+        self.database_table['columns'] = ('id', 'name', 'from_date', 'to_date')
+        for column in self.database_table['columns']:
+            self.database_table.heading(column, text=column, anchor='center')
+            self.database_table.column(column, anchor='center', width=145)
+        for row in self.database_list:
+            self.database_table.insert('', tk.END, values=row)
+
+        # Add scrollbar
+        self.scrollbar = ttk.Scrollbar(self.database_frame, command=self.database_table.yview)
+        self.database_table.configure(yscrollcommand=self.scrollbar.set)
+        self.scrollbar.pack(side=tk.RIGHT, fill='y')
+        self.database_table.pack(expand=tk.YES, fill='both')
+
+    # --- Event handlers ---
+
+    def stock_selected(self, event):
+        self.selected_stock = self.stock_combobox.get()
+        self.update_date_range()
+
+    def start_date_selected(self, event):
+        self.start_date = self.start_date_entry.get_date()
+        self.end_date = self.end_date_entry.get_date()
+        self.update_all_period_flag()
+
+    def end_date_selected(self, event):
+        self.start_date = self.start_date_entry.get_date()
+        self.end_date = self.end_date_entry.get_date()
+        self.update_all_period_flag()
+
+    def update_all_period_flag(self):
+        if self.start_date == self.begin_end_date[0] and self.end_date == self.begin_end_date[1]:
+            self.all_period_var.set(True)
         else:
-            self.flag_all_period.set(0)
+            self.all_period_var.set(False)
 
-    def __add_stock(self):
-        if self.name_of_stock != '':
-            if self.first_date < self.begin_end_date[0] and self.second_date > self.begin_end_date[1]:
-                self.__set_begin_end()
-                self.__warning()
-            elif self.first_date < self.begin_end_date[0]:
-                self.__set_begin_end()
-                self.__warning()
-            elif self.second_date > self.begin_end_date[1]:
-                self.__set_begin_end()
-                self.__warning()
+    def toggle_all_period(self):
+        if self.all_period_var.get():
+            self.start_date_entry.set_date(self.begin_end_date[0])
+            self.end_date_entry.set_date(self.begin_end_date[1])
+            self.start_date = self.begin_end_date[0]
+            self.end_date = self.begin_end_date[1]
+        else:
+            self.start_date = self.begin_end_date[0] + datetime.timedelta(days=1)
+            self.start_date_entry.set_date(self.start_date)
+
+    def update_date_range(self):
+        self.begin_end_date = dbm.period_end_date(self.selected_stock)
+        if self.all_period_var.get():
+            self.start_date_entry.set_date(self.begin_end_date[0])
+            self.end_date_entry.set_date(self.begin_end_date[1])
+        self.start_date = self.start_date_entry.get_date()
+        self.end_date = self.end_date_entry.get_date()
+
+    def refresh_stock_list(self):
+        dbm.tab_stocks()
+        dbm.upd_l_stocks()
+        self.stock_list = dbm.cur_l_stoc()
+        self.stock_combobox.configure(values=self.stock_list)
+
+    def add_stock(self):
+        if self.selected_stock:
+            if self.start_date < self.begin_end_date[0] and self.end_date > self.begin_end_date[1]:
+                self.update_date_range()
+                self.show_warning()
+            elif self.start_date < self.begin_end_date[0]:
+                self.update_date_range()
+                self.show_warning()
+            elif self.end_date > self.begin_end_date[1]:
+                self.update_date_range()
+                self.show_warning()
             else:
-                answer = dbm.add_to_db(self.name_of_stock,
-                                       bool(self.flag_all_period.get()),
-                                       self.first_date,
-                                       self.second_date)
-                if answer is False:
-                    mb.showwarning('Внимание', 'Данные по акции не скачались')
+                result = dbm.add_to_db(self.selected_stock,
+                                        self.all_period_var.get(),
+                                        self.start_date,
+                                        self.end_date)
+                if not result:
+                    mb.showwarning('Warning', 'Stock data was not downloaded')
                 else:
-                    self.list_database = dbm.get_current_list_database()
-                    self.table.insert('', tk.END, values=self.list_database[-1])
+                    self.database_list = dbm.cur_l_database()
+                    self.database_table.insert('', tk.END, values=self.database_list[-1])
         else:
-            warning = 'Выберите акцию'
-            mb.showwarning('Внимание', warning)
+            mb.showwarning('Warning', 'Select a stock')
 
-    def __set_begin_end(self):
-        self.de_period1.set_date(self.begin_end_date[0])
-        self.first_date = self.begin_end_date[0]
-        self.de_period2.set_date(self.begin_end_date[1])
-        self.second_date = self.begin_end_date[1]
-        self.flag_all_period.set(1)
-
-    def __deleting(self):
-        for i in self.table.get_children():
-            self.table.delete(i)
-        dbm.delete_tables()
+    def delete_all_data(self):
+        for item in self.database_table.get_children():
+            self.database_table.delete(item)
+        dbm.del_t()
         dbm.create_db()
 
-    def __widgets_stat_frame(self):
-        l_graphic = tk.Label(self.frame_stat, text='Получение отчётов')
-        btn_stat_cost = tk.Button(self.frame_stat, text='Динамика стоимости', command=self.__new_window_cost)
-        btn_stat_profit = tk.Button(self.frame_stat, text='Динамика доходности', command=self.__new_window_profit)
-        l_graphic.pack(padx=10, pady=12)
-        btn_stat_cost.pack(padx=10, pady=10)
-        btn_stat_profit.pack(padx=10, pady=10)
+    def actualize_data(self):
+        pass  # Replace with your data actualization logic
 
-    def __widgets_db_frame(self):
-        self.list_database = dbm.get_current_list_database()
-        self.table = ttk.Treeview(self.frame_db, show='headings')
-        heads = ['id', 'name', 'all_period', 'from_date', 'to_date']
-        self.table['columns'] = heads
-        for header in heads:
-            self.table.heading(header, text=header, anchor='center')
-            self.table.column(header, anchor='center')
-        for row in self.list_database:
-            self.table.insert('', tk.END, values=row)
-        self.table.column('0', width=140)
-        self.table.column('1', width=145)
-        self.table.column('2', width=145)
-        self.table.column('3', width=145)
-        self.table.column('4', width=145)
-        scroll_pane = ttk.Scrollbar(self.frame_db, command=self.table.yview)
-        self.table.configure(yscrollcommand=scroll_pane.set)
-        scroll_pane.pack(side=tk.RIGHT, fill='y')
-        self.table.pack(expand=tk.YES, fill='both')
+    def show_warning(self):
+        warning_message = f"The stock is traded from {self.begin_end_date[0]} to {self.begin_end_date[1]}.\nTo update the information, click 'Update Stocks'."
+        mb.showwarning('Attention', warning_message)
 
-    def __actualize(self):
-        dbm.actualize()
-        self.list_database = dbm.get_current_list_database()
-        for i in self.table.get_children():
-            self.table.delete(i)
-        for row in self.list_database:
-            self.table.insert('', tk.END, values=row)
+    def open_cost_dynamics(self):
+        CostDynamicsWindow(self)
 
-    def __new_window_cost(self):
-        window = Window(self, 0)
-        window.grab_set()
-
-    def __new_window_profit(self):
-        window = Window(self, 1)
-        window.grab_set()
+    def open_profit_dynamics(self):
+        ProfitDynamicsWindow(self)
 
 
-class Window(tk.Toplevel):
-    def __init__(self, parent, flag):
+class ChartWindow(tk.Toplevel):
+    def __init__(self, parent, data_type):
         super().__init__(parent)
-        self.bool = flag
-        if self.bool:
-            self.title('Динамика доходности')
+
+        if data_type == 0:
+            self.title('Cost Dynamics')
+            self.data = dbm.cur_d_tradings()
         else:
-            self.title('Динамика стоимости')
-        self['background'] = '#EBEBEB'
+            self.title('Yield Dynamics')
+            self.data = dbm.t_profit()
+
+        self.configure(background='#EBEBEB')
         self.geometry("700x400+0+0")
         self.resizable(False, False)
+
         self.frame_settings = tk.Frame(self)
         self.frame_graphic = tk.Frame(self)
-        self.flag_download = False
+
         self.frame_settings.pack(side='left', fill='y')
         self.frame_graphic.pack(side='right')
-        self.__widgets_settings()
 
-    def __widgets_settings(self):
-        self.btn_graphic = tk.Button(self.frame_settings, text='График', command=self.__draw)
-        self.btn_excel = tk.Button(self.frame_settings, text='Скачать в excel', command=self.__excel)
+        self.create_settings_widgets()
+        self.draw_chart()
+
+    def create_settings_widgets(self):
+        self.btn_graphic = tk.Button(self.frame_settings, text='Graph', command=self.draw_chart)
+        self.btn_excel = tk.Button(self.frame_settings, text='Download to Excel', command=self.download_to_excel)
         self.btn_graphic.grid(row=0, column=0, padx=10, pady=10, sticky='we')
         self.btn_excel.grid(row=1, column=0, padx=10, pady=10, sticky='we')
 
-    def __draw(self):
-        if self.bool:
-            self.dct = dbm.get_tradings_profit()
-        else:
-            self.dct = dbm.get_current_dict_tradings()
-        self.df = pd.DataFrame(self.dct)
-        self.flag_download = True
+    def draw_chart(self):
+        self.df = pd.DataFrame(self.data)
         fig = plt.Figure(figsize=(5.5, 4), dpi=100)
         ax = fig.add_subplot(111)
         line = FigureCanvasTkAgg(fig, master=self.frame_graphic)
         line.get_tk_widget().grid(row=0, column=0)
-        self.df.plot(x='Date', y=self.df.axes[1][1:], ax=ax, kind='line')
 
-    def __excel(self):
-        if not self.flag_download:
-            mb.showwarning('Внимание', 'Нажмите на кнопку "График" перед тем как скачать отчёт')
+        colors = [f'#{random.randint(0, 255):02x}{random.randint(0, 255):02x}{random.randint(0, 255):02x}'
+                  for _ in range(len(self.df.axes[1][1:]))]
+        # Используйте `color=colors` при первом вызове `self.df.plot`
+        self.df.plot(x='Date', y=self.df.axes[1][1:], ax=ax, kind='line', color=colors)
+        ax.set_xlabel('Years')
+        if self.title == 'Cost Dynamics':
+            ax.set_ylabel('Costs')
         else:
-            self.df.to_excel("output_profit.xlsx") if self.bool else self.df.to_excel("output_cost.xlsx")
-            progress_bar = ttk.Progressbar(self.frame_settings,
-                                           orient='horizontal',
-                                           mode='determinate',
-                                           maximum=100,
-                                           value=0)
-            label = tk.Label(self.frame_settings, text='Загрузка')
-            label.grid(row=2, column=0, padx=10, pady=10, sticky='we')
-            progress_bar.grid(row=3, column=0, padx=10, pady=10, sticky='we')
-            self.update()
-            progress_bar['value'] = 0
-            self.update()
-            while progress_bar['value'] < 100:
-                progress_bar['value'] += 5
-                self.update()
-                time.sleep(0.1)
+            ax.set_ylabel('Yield')
 
+    def download_to_excel(self):
+        if not hasattr(self, 'df'):
+            mb.showwarning('Attention', 'Click the "Chart" button before downloading the report')
+            return
+
+        if self.title == 'Cost Dynamics':
+            file_name = "cost.xlsx"
+        else:
+            file_name = "profit.xlsx"
+
+        self.df.to_excel(file_name)
+
+        progress_bar = ttk.Progressbar(self.frame_settings,
+                                       orient='horizontal',
+                                       mode='determinate',
+                                       maximum=100,
+                                       value=0)
+        label = tk.Label(self.frame_settings, text='Loading')
+        label.grid(row=2, column=0, padx=10, pady=10, sticky='we')
+        progress_bar.grid(row=3, column=0, padx=10, pady=10, sticky='we')
+        self.update()
+        progress_bar['value'] = 0
+        self.update()
+        while progress_bar['value'] < 100:
+            progress_bar['value'] += 5
+            self.update()
+            time.sleep(0.1)
+
+        # Откройте файл с помощью ОС
+        os.startfile(file_name)
+class CostDynamicsWindow(ChartWindow):
+    def __init__(self, parent):
+        super().__init__(parent, 0)
+
+class ProfitDynamicsWindow(ChartWindow):
+    def __init__(self, parent):
+        super().__init__(parent, 1)
 
 def create_app():
-    app = App()
+    app = StockApp()
     app.mainloop()
